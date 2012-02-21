@@ -1,0 +1,14 @@
+{application, estatist_http,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  estatist,
+                  cowboy
+                 ]},
+  {mod, {estatist_http_app, []}},
+  {env, []}
+ ]}.
