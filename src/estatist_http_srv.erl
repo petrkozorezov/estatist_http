@@ -54,15 +54,15 @@ init(Options) ->
     {ok, _Pid} = cowboy:start_listener(?MODULE, 8, Transport, TransportOptions, Proto, [{dispatch, Dispatch}]),
     {ok, undefined}.
 
-handle_call(Msg, From, State) ->
+handle_call(_Msg, _From, State) ->
     %% ?LOG_ERROR("unexpected call '~p' from ~p", [Msg, From]),
     {noreply, ok, State}.
 
-handle_cast(Msg, State) ->
+handle_cast(_Msg, State) ->
     %% ?LOG_ERROR("unexpected cast '~p'", [Msg]),
     {noreply, State}.
 
-handle_info(Info, State) ->
+handle_info(_Info, State) ->
     %% ?LOG_ERROR("unexpected info '~p'", [Info]),
     {noreply, State}.
 
