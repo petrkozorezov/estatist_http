@@ -1,3 +1,5 @@
+% @author Kozorezov Petr <petr.kozorezov@gmail.com>
+% @copyright 2012 Kozorezov Petr
 -module(estatist_http_app).
 
 -behaviour(application).

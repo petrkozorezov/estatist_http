@@ -1,8 +1,12 @@
+% @author Kozorezov Petr <petr.kozorezov@gmail.com>
+% @copyright 2012 Kozorezov Petr
 -module(estatist_http_handlers).
 -behaviour(cowboy_http_handler).
 
 %% Protocol:
-%% -> Method: GET, URL: /?metric=all_metrics&type=all_types&param=all_params
+%% -> Method: GET, URL: /?names=all&types=all&params=all
+%% -> Method: GET, URL: /?names=a,b,c
+%% -> Method: GET, URL: /?types=meter&params=one,five
 
 %%
 %% cowboy_http_handler behaviour
@@ -21,27 +25,43 @@ init({_Any, http}, Request, Options) ->
 handle(Request, {_Options, _Peer, 'GET'}) ->
     {ok, Reply} =
         try
-            MetricName      = get_qs_param(<<"metric">>, Request, <<"all_metrics">>),
-            MetricType      = get_qs_param(<<"type">>,   Request, <<"all_types">>),
-            MetricTypeParam = get_qs_param(<<"param">>,  Request, <<"all_params">>),
-            MetricsValues   =
-                case get_qs_param(<<"row_id">>,  Request, <<"undefined">>) of
+            Query = [ 
+                        {names,   get_qs_param(<<"names">>,    all, Request)},
+                        {types,   get_qs_param(<<"types">>,    all, Request)},
+                        {params,  get_qs_param(<<"params">>,   all, Request)}
+                    ],
+            SelectResult   =
+                case get_qs_param(<<"row_id">>,  undefined, Request) of
                     undefined ->
-                        estatist:get(MetricName, MetricType, MetricTypeParam);
+                        estatist:select(Query);
                     RowID ->
-                        estatist:get(MetricName, MetricType, MetricTypeParam, {id, RowID})
+                        estatist:select([{row_id, {id, RowID}} | Query])
                 end,
-            %io:format("~p~n", [MetricsValues]),
-            ProparedForJson = encode_response(MetricsValues),
-            %io:format("~p~n", [ProparedForJson]),
-            {ok, Json} = json:encode(ProparedForJson),
-            cowboy_http_req:reply(200, [{'Content-Type', "application/json"}], Json, Request)
+            case SelectResult of
+                {ok, MetricsValues} ->
+                    %io:format("~p~n", [MetricsValues]),
+                    ProparedForJson = encode_response(MetricsValues),
+                    %io:format("~p~n", [ProparedForJson]),
+                    {ok, Json} = json:encode(ProparedForJson),
+                    cowboy_http_req:reply(200, [{'Content-Type', "application/json"}], Json, Request);
+                {error, Err} ->
+                    Resp = 
+                        case Err of
+                            {unknown_metric, Name} ->
+                                "unknown metric name: " ++ atom_to_list(Name);
+                            {type_for_this_metric_not_found, Name, Type} ->
+                                "type for this metric is not found: " ++ atom_to_list(Name) ++ ", " ++ atom_to_list(Type);
+                            {incorrect_row_id, RowID1} ->
+                                "incorrect row id: " ++ atom_to_list(RowID1)
+                        end,
+                    reply(400, Resp, Request)
+            end
         catch
-            error:badarg ->
+            throw:{bad_request,{unknown_atom, String}} ->
                 %%io:format("~p ~p~n", [badarg, erlang:get_stacktrace()]),
-                reply(400, Request);
-            _T:_E ->
-                %%io:format("~p ~p~n", [E, erlang:get_stacktrace()]),
+                reply(400, "unknown atom: " ++ String, Request);
+            _T:E ->
+                io:format("~p ~p~n", [E, erlang:get_stacktrace()]),
                 reply(500, Request)
         end,
     {ok, Reply, undefined};
@@ -73,9 +93,6 @@ reply_data(Code) -> erlang:list_to_binary("Error: " ++ erlang:integer_to_list(Co
 examine_request(Request, What) ->
     [ begin {Value, _} = cowboy_http_req:Ask(Request), Value end || Ask <- What ].
 
-get_qs_param(Param, Req, Def) ->
-    {Val, _} = cowboy_http_req:qs_val(Param, Req, Def),
-    list_to_existing_atom(binary_to_list(Val)).
 
 
 encode_response(List) when is_list(List) ->
@@ -85,3 +102,38 @@ encode_response({Name, Obj}) when is_list(Obj) or is_tuple(Obj) ->
 encode_response(V) ->
     V.
 
+
+get_qs_param(Key, Default, ReqData) ->
+    case get_qs_atoms_list(Key, undefined, ReqData) of
+        undefined -> Default;
+        Values ->
+            Values
+    end.
+
+get_qs_atoms_list(Field, Default, ReqData) ->
+    case get_qs_value(Field, undefined, ReqData) of
+        undefined -> Default;
+        Values ->
+            case [make_field_atom(Value) || Value <- tokens(Values)] of
+                [V] ->
+                    V;
+                O ->
+                    O
+            end
+    end.
+
+tokens(Data) ->
+    string:tokens(binary_to_list(Data), " \t,").
+
+make_field_atom(Field) ->
+    try list_to_existing_atom(Field)
+    catch error:badarg -> throw({bad_request, {unknown_atom, Field}})
+    end.
+
+get_qs_value(Key, Default, ReqData) ->
+    case cowboy_http_req:qs_val(Key, ReqData, undefined) of
+        {undefined, _} ->
+            Default;
+        {Value, _} ->
+            Value
+    end.
