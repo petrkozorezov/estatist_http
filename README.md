@@ -37,4 +37,5 @@ then start:
 Get http://127.0.0.1:8000/.
 
 Also you can specify what to get like [estatist:select/1](https://github.com/petrkozorezov/estatist/blob/master/doc/estatist.md#select-1).
+
 http://127.0.0.1:8000/?names=all&types=all&params=all
