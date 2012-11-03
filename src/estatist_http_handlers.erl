@@ -39,11 +39,11 @@ handle(Request, {_Options, _Peer, 'GET'}) ->
                 end,
             case SelectResult of
                 {ok, MetricsValues} ->
-                    %io:format("~p~n", [MetricsValues]),
+                    io:format("~p~n", [MetricsValues]),
                     ProparedForJson = encode_response(MetricsValues),
-                    %io:format("~p~n", [ProparedForJson]),
-                    {ok, Json} = jiffy:encode(ProparedForJson),
-                    cowboy_http_req:reply(200, [{'Content-Type', "application/jiffy"}], Json, Request);
+                    io:format("~p~n", [ProparedForJson]),
+                    Json = jiffy:encode(ProparedForJson),
+                    cowboy_http_req:reply(200, [{'Content-Type', "application/json"}], Json, Request);
                 {error, Err} ->
                     Resp = 
                         case Err of
@@ -98,9 +98,14 @@ examine_request(Request, What) ->
 encode_response(List) when is_list(List) ->
     {lists:map(fun(E) -> encode_response(E) end, List)};
 encode_response({Name, Obj}) when is_list(Obj) or is_tuple(Obj) ->
-    {Name, encode_response(Obj)};
+    {encode_key(Name), encode_response(Obj)};
 encode_response(V) ->
     V.
+
+encode_key(Key) when is_list(Key) ->
+    list_to_binary(Key);
+encode_key(Key) ->
+    Key.
 
 
 get_qs_param(Key, Default, ReqData) ->
