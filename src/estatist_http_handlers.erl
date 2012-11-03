@@ -42,8 +42,8 @@ handle(Request, {_Options, _Peer, 'GET'}) ->
                     %io:format("~p~n", [MetricsValues]),
                     ProparedForJson = encode_response(MetricsValues),
                     %io:format("~p~n", [ProparedForJson]),
-                    {ok, Json} = json:encode(ProparedForJson),
-                    cowboy_http_req:reply(200, [{'Content-Type', "application/json"}], Json, Request);
+                    {ok, Json} = jiffy:encode(ProparedForJson),
+                    cowboy_http_req:reply(200, [{'Content-Type', "application/jiffy"}], Json, Request);
                 {error, Err} ->
                     Resp = 
                         case Err of
