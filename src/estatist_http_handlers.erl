@@ -19,7 +19,6 @@
 
 init({_Any, http}, Request, Options) ->
     [Peer, Method] = examine_request(Request, [peer, method]),
-    %% ?LOG_DEBUG("New ~p request on ~p was received from ~s", [Method, RawPath, drimmi_ecore_utils:peername(Peer)]),
     {ok, Request, {Options, Peer, Method}}.
 
 handle(Request, {_Options, _Peer, 'GET'}) ->
@@ -39,9 +38,7 @@ handle(Request, {_Options, _Peer, 'GET'}) ->
                 end,
             case SelectResult of
                 {ok, MetricsValues} ->
-                    io:format("~p~n", [MetricsValues]),
                     ProparedForJson = encode_response(MetricsValues),
-                    io:format("~p~n", [ProparedForJson]),
                     Json = jiffy:encode(ProparedForJson),
                     cowboy_http_req:reply(200, [{'Content-Type', "application/json"}], Json, Request);
                 {error, Err} ->
@@ -61,13 +58,12 @@ handle(Request, {_Options, _Peer, 'GET'}) ->
                 %%io:format("~p ~p~n", [badarg, erlang:get_stacktrace()]),
                 reply(400, "unknown atom: " ++ String, Request);
             _T:E ->
-                io:format("~p ~p~n", [E, erlang:get_stacktrace()]),
+                error_logger:error_msg("~p ~p~n", [E, erlang:get_stacktrace()]),
                 reply(500, Request)
         end,
     {ok, Reply, undefined};
 
 handle(Request, {_, _Peer, _Method}) ->
-    %% ?LOG_ERROR("Bad request from '~s': ~p ~p", [drimmi_ecore_utils:peername(Peer), Method, Path]),
     {ok, Reply} = reply(400, Request),
     {ok, Reply, undefined}.
 
